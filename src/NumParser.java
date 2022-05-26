@@ -53,10 +53,13 @@ public class NumParser{
     static boolean num(int t){
         char [] digitSet = {'1','2','3','4','5','6','7','8','9','0'};
         ausgabe("num->", t);          //Syntaxbaum ausgeben
-        if (lookAhead(digitSet))
+        if (lookAhead(digitSet)){
+            System.out.println(1);
             return digit(t+1)&& num(t+1);   //num->digit num
-        else
+        } else{
+            System.out.println(2);
             return digit(t+1);          //num->digit
+        }
     }//num
 
 
