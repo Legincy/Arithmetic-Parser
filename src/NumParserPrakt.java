@@ -1,13 +1,19 @@
 import java.io.FileReader;
+import java.util.concurrent.TimeUnit;
 
 public class NumParserPrakt {
     final static String SOURCE_FILE = "testdatei.txt";
-    static final char[][] VALID_CHARACTERS_SETS = {{'1','2','3','4','5','6','7','8','9','0'},
-    {'+', '*', '/', '-'}, {'(', ')'}};
     static final char EOF = (char) 255;
+    static final char[][] VALID_CHARACTERS_SETS = {
+            {'1','2','3','4','5','6','7','8','9','0'},
+            {'*', '/'},
+            {'-', '+'},
+            {'(', ')'},
+            {EOF}};
     static int BUFFER_SIZE = 256;
     static int CHAR_POINTER = 0;
     static int MAX_POINTER = 0;
+    static int OPEN_OPERATIONS = 0;
     static char CHAR_SOURCE[];
 
     public static void main(String[] args) {
@@ -23,69 +29,123 @@ public class NumParserPrakt {
     }
 
     private static boolean expression(int step){
-        displayMessage("expression ->", step);
-        if(checkNextChar(step)){
-            return true;
-        }
-        return false;
+        displayMessage("expression", step);
+        return term(step) && rightExpression(step);
     }
 
     private static boolean rightExpression(int step){
+        displayMessage("rightExpression", step+1);
+
+        if(match(VALID_CHARACTERS_SETS[4], -1)) {
+            displayMessage("ε", step+2);
+            return true;
+        }
+
+        match(VALID_CHARACTERS_SETS[2], step+1);
+        return term(step+1) && rightExpression(step+1);
+    }
+
+    private static boolean rightTerm(int step){
+        int nextChar = checkNextChar();
+
+        displayMessage("rightTerm", step+1);
+        match(VALID_CHARACTERS_SETS[1], step+1);
+
+        if(nextChar == 1){ //1:= {'*', '/'}
+            return operator(step+1) && rightTerm(step+1);
+        } else if(nextChar == 2){//1:= {'+', '-'}
+            return term(step+1) && rightExpression(step+1);
+        }
+        else if(nextChar == 3){ //3:= {'(', ')'}
+            return operator(step+1) && rightTerm(step+1);
+        }
+
+        displayMessage("ε", step+2);
         return true;
     }
 
     private static boolean term(int step){
-        return true;
+        displayMessage("term", step+1);
+        return operator(step+1) && rightTerm(step+1);
     }
 
     private static boolean operator(int step){
-        return true;
-    }
+        char[] openSet = {'('};
+        char[] closeSet = {')'};
+        displayMessage("operator", step+1);
 
-    private static boolean num(int step){
-        return true;
-    }
 
-    private static boolean digit(int step){
-
-        displayMessage(String.format("digit -> %s", CHAR_SOURCE[CHAR_POINTER]), step);
-        return true;
-    }
-
-    private static boolean match(char[] set, int step){
-        for(char item : set){
-            if(item == CHAR_SOURCE[CHAR_POINTER]){
-                displayMessage(String.format("match: %s", CHAR_SOURCE[CHAR_POINTER]), step);
-                CHAR_POINTER++;
+        if(match(VALID_CHARACTERS_SETS[0], -1)){ // {'1','2','3','4','5','6','7','8','9','0'}
+            return num(step+1);
+        }else if (match(VALID_CHARACTERS_SETS[1], -1)){ // {'*', '/'}
+            return operator(step+1) && rightTerm(step+1);
+        }else if(match(VALID_CHARACTERS_SETS[2], -1)){ // {'+', '-'}
+            match(VALID_CHARACTERS_SETS[2], step +1);
+        }
+        else if (match(VALID_CHARACTERS_SETS[3], -1)){ // {'(', ')'}
+            if(CHAR_SOURCE[CHAR_POINTER] == VALID_CHARACTERS_SETS[3][0]){ // if char == ')'
+                match(openSet, step +1);
+                return expression(step+2);
+            }else if(CHAR_SOURCE[CHAR_POINTER] == VALID_CHARACTERS_SETS[3][1]){ // if char == ')'
+                match(closeSet, step +2);
+                OPEN_OPERATIONS--;
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean checkNextChar(int step){
-        for(int i=0; i<VALID_CHARACTERS_SETS.length; i++){
-            for(char item : VALID_CHARACTERS_SETS[i]){
-                if(item == CHAR_SOURCE[CHAR_POINTER+1]){
-                    switch(i){
-                        case 0:
-                            return term(step +1) && rightExpression(step+1);
-                        case 1:
-                            return term(step +1) && rightExpression(step+1);
-                        case 2:
-                            System.out.println("operation");
-                    }
+    private static boolean num(int step){
+        displayMessage("num", step+1);
 
+        if(checkNextChar() == 0){ //0:= {'1','2','3','4','5','6','7','8','9','0'}
+            return digit(step+1) && num(step+1);
+        }else{
+            return digit(step+1);
+        }
+    }
+
+    private static boolean digit(int step){
+        displayMessage("digit", step+1);
+
+        match(VALID_CHARACTERS_SETS[0], step);
+        return true;
+    }
+
+    private static boolean match(char[] set, int step){
+        for(char item : set){
+            if(item == CHAR_SOURCE[CHAR_POINTER]){
+                if(item == '(') OPEN_OPERATIONS++;
+                if(step != -1) {
+                    displayMessage(String.format("match: %s", CHAR_SOURCE[CHAR_POINTER]), step+1);
+                    CHAR_POINTER++;
                 }
+                return true;
             }
         }
         return false;
     }
 
+    private static int checkNextChar(){
+        for(int i=0; i<VALID_CHARACTERS_SETS.length; i++){
+            for(char item : VALID_CHARACTERS_SETS[i]){
+                if(item == CHAR_SOURCE[CHAR_POINTER+1]){
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
     private static void displayMessage(String msg, int step){
         String whitespace = "";
         for(int i=0; i<step; i++){
-            whitespace += "    ";
+            if(i == step-1){
+                if(msg.contains("match")) whitespace += "[*] ";
+                else whitespace += "|---";
+            }else{
+                whitespace += "|   ";
+            }
         }
 
         System.out.println(whitespace + msg);
@@ -93,10 +153,8 @@ public class NumParserPrakt {
 
     private static boolean isEndOfLine(){
         if(CHAR_POINTER == MAX_POINTER){
-            displayMessage("", 0);
             return true;
         }
-        displayMessage("", 0);
         return false;
     }
 
