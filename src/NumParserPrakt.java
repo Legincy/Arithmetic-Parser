@@ -20,12 +20,23 @@ public class NumParserPrakt {
         CHAR_SOURCE = new char[BUFFER_SIZE];
 
         if(readFile()){
-            if(expression(0) && isEndOfLine()){
-                System.out.println("Korrekter Ausdruck.");
+            if(expression(0) && isEndOfLine() && !isEmpty() && checkSettings()){
+                System.out.println("\n[INFO]: Valid syntax.");
                 return;
             }
-            System.out.println("Fehler im Ausdruck");
+            System.out.println(String.format("\n[INFO]: Error in syntax at position %s with char: '%s'", CHAR_POINTER, CHAR_SOURCE[CHAR_POINTER-1]));
         }
+    }
+
+    private static boolean checkSettings(){
+        if(OPEN_OPERATIONS > 0){
+            displayMessage("Closing bracket expected.", 0);
+            return false;
+        }else if(OPEN_OPERATIONS < 0){
+            displayMessage("Too many opened brackets found.", 0);
+            return false;
+        }
+        return true;
     }
 
     private static boolean expression(int step){
@@ -36,30 +47,21 @@ public class NumParserPrakt {
     private static boolean rightExpression(int step){
         displayMessage("rightExpression", step+1);
 
-        if(match(VALID_CHARACTERS_SETS[4], -1)) {
-            displayMessage("ε", step+2);
-            return true;
+        if(match(VALID_CHARACTERS_SETS[2], step+1)) {
+            return term(step+1) && rightExpression(step+1);
         }
 
-        match(VALID_CHARACTERS_SETS[2], step+1);
-        return term(step+1) && rightExpression(step+1);
+        displayMessage("ε", step+2);
+        return true;
     }
 
     private static boolean rightTerm(int step){
         int nextChar = checkNextChar();
-
         displayMessage("rightTerm", step+1);
-        match(VALID_CHARACTERS_SETS[1], step+1);
 
-        if(nextChar == 1){ //1:= {'*', '/'}
-            return operator(step+1) && rightTerm(step+1);
-        } else if(nextChar == 2){//1:= {'+', '-'}
-            return term(step+1) && rightExpression(step+1);
-        }
-        else if(nextChar == 3){ //3:= {'(', ')'}
+        if(match(VALID_CHARACTERS_SETS[1], step+1)){ //1:= {'*', '/'}
             return operator(step+1) && rightTerm(step+1);
         }
-
         displayMessage("ε", step+2);
         return true;
     }
@@ -74,21 +76,14 @@ public class NumParserPrakt {
         char[] closeSet = {')'};
         displayMessage("operator", step+1);
 
-
         if(match(VALID_CHARACTERS_SETS[0], -1)){ // {'1','2','3','4','5','6','7','8','9','0'}
             return num(step+1);
-        }else if (match(VALID_CHARACTERS_SETS[1], -1)){ // {'*', '/'}
-            return operator(step+1) && rightTerm(step+1);
-        }else if(match(VALID_CHARACTERS_SETS[2], -1)){ // {'+', '-'}
-            match(VALID_CHARACTERS_SETS[2], step +1);
         }
         else if (match(VALID_CHARACTERS_SETS[3], -1)){ // {'(', ')'}
-            if(CHAR_SOURCE[CHAR_POINTER] == VALID_CHARACTERS_SETS[3][0]){ // if char == ')'
-                match(openSet, step +1);
-                return expression(step+2);
-            }else if(CHAR_SOURCE[CHAR_POINTER] == VALID_CHARACTERS_SETS[3][1]){ // if char == ')'
-                match(closeSet, step +2);
-                OPEN_OPERATIONS--;
+            if(CHAR_SOURCE[CHAR_POINTER] == VALID_CHARACTERS_SETS[3][0]){ // if char == '('
+                if(match(openSet, step +1)) OPEN_OPERATIONS++;
+                expression(step+2);
+                if (match(closeSet, step +2)) OPEN_OPERATIONS--;
                 return true;
             }
         }
@@ -99,7 +94,7 @@ public class NumParserPrakt {
         displayMessage("num", step+1);
 
         if(checkNextChar() == 0){ //0:= {'1','2','3','4','5','6','7','8','9','0'}
-            return digit(step+1) && num(step+1);
+            return  digit(step+1) && num(step+1);
         }else{
             return digit(step+1);
         }
@@ -115,9 +110,8 @@ public class NumParserPrakt {
     private static boolean match(char[] set, int step){
         for(char item : set){
             if(item == CHAR_SOURCE[CHAR_POINTER]){
-                if(item == '(') OPEN_OPERATIONS++;
                 if(step != -1) {
-                    displayMessage(String.format("match: %s", CHAR_SOURCE[CHAR_POINTER]), step+1);
+                    displayMessage(String.format("match: %s [%s]", CHAR_SOURCE[CHAR_POINTER], CHAR_POINTER), step+1);
                     CHAR_POINTER++;
                 }
                 return true;
@@ -142,13 +136,21 @@ public class NumParserPrakt {
         for(int i=0; i<step; i++){
             if(i == step-1){
                 if(msg.contains("match")) whitespace += "[*] ";
-                else whitespace += "|---";
+                else whitespace += "<---";
             }else{
                 whitespace += "|   ";
             }
         }
 
         System.out.println(whitespace + msg);
+    }
+
+    private static boolean isEmpty(){
+        if(CHAR_SOURCE.length == 0) {
+            displayMessage("Cannot parse an empty file.", 0);
+            return true;
+        }
+        return false;
     }
 
     private static boolean isEndOfLine(){
